@@ -4,8 +4,8 @@
 
 int solver(double a, double b, double c, double* x1, double* x2);
 int SquareSolver(double a, double b, double c, double* x1, double* x2);
-int NotSquareSolver(double b, double c, double* x);
-void entering(double* a, double* b, double* c);
+int LinearSolver(double b, double c, double* x);
+void input(double* a, double* b, double* c);
 void ans(int rootsn, double x1, double x2);
 double MinusNullCheck(double num);
 int tester(void);
@@ -17,11 +17,11 @@ const double EPSILON = 0.000001;
 int main(void)
 {
     int nErrors = tester();
-    printf("%d\n", nErrors);
+    printf("Число ошибок: %d\n", nErrors);
 
     double a = NAN, b = NAN, c = NAN;
 
-    entering(&a, &b, &c);
+    input(&a, &b, &c);
 
     double x1 = NAN, x2 = NAN;
     int rootsn = 0;
@@ -35,9 +35,12 @@ int main(void)
 
 int solver(double a, double b, double c, double* x1, double* x2)    //решает уравнение
 {
+    assert(x1 != NULL);
+    assert(x2 != NULL);
+
     if (fabs(a) < EPSILON)
     {
-        return NotSquareSolver(b, c, x1);
+        return LinearSolver(b, c, x1);
     }
     else
     {
@@ -45,8 +48,10 @@ int solver(double a, double b, double c, double* x1, double* x2)    //решает ура
     }
 }
 
-int NotSquareSolver(double b, double c, double* x)  //случай если коэфицент a равен 0
+int LinearSolver(double b, double c, double* x)  //случай если коэфицент a равен 0
 {
+    assert(x != NULL);
+
     if (fabs(b) < EPSILON)
     {
         return (fabs(c) < EPSILON) ? SS_ENF : 0;
@@ -60,6 +65,10 @@ int NotSquareSolver(double b, double c, double* x)  //случай если коэфицент a ра
 
 int SquareSolver(double a, double b, double c, double* x1, double* x2)  //случай если коэфицент a не равен 0
 {
+    assert(fabs(a) > EPSILON);
+    assert(x1 != NULL);
+    assert(x2 != NULL);
+
     double d = b * b - 4 * a * c;
 
     if (d > 0)
@@ -80,18 +89,21 @@ int SquareSolver(double a, double b, double c, double* x1, double* x2)  //случай
     }
 }
 
-void entering(double* a, double* b, double* c)  //ввод
+void input(double* a, double* b, double* c)  //ввод
 {
+    assert(a != NULL);
+    assert(b != NULL);
+    assert(c != NULL);
+
     printf("Я решаю квадратные уравнения.\n");
     printf("Уравнение имеет вид ax^2 + bx + c = 0\n");
     printf("Введите коэфиценты a, b и c через пробел\n");
 
-    int ent = 0;
-    ent = scanf("%lf %lf %lf", a, b, c);
-    while (ent != 3)
+    while (scanf("%lf %lf %lf", a, b, c) != 3)
     {
+        while (getchar() != '\n');
+
         printf("Введите числа правильно\n");
-        ent = scanf("%*s %lf %lf %lf", a, b, c);
     }
 }
 
