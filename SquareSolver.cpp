@@ -3,22 +3,31 @@
 #include <math.h>
 #include <stdbool.h>
 
+struct TestData
+{
+    int nTest;
+    double a, b, c;
+    double x1Right, x2Right;
+    int rootsnRight;
+};
+
 int solver(double a, double b, double c, double* x1, double* x2);
 int SquareSolver(double a, double b, double c, double* x1, double* x2);
 int LinearSolver(double b, double c, double* x);
-void input(double* a, double* b, double* c);
+int input(double* a, double* b, double* c);
 void ans(int rootsn, double x1, double x2);
 double MinusNullCheck(double num);
 int tester(void);
-int nTester(int nTest, double a, double b, double c, double x1Right, double x2Right, int rootsn);
+int nTester(TestData data);
 bool DoubleZeroCheck(double num);
 void SortRoots(double* x1, double* x2);
-void bufferClear(void);
+void BufferClear(void);
 
 //Читать прату, указатели массивы строки и структуры
 
 const double EPSILON = 0.000001;
-const int SUCCESS_END = 0;
+const int SUCCESS = 0;
+const int UNSUCCESS = 1;
 const int NO_ROOTS = 0;
 const int ONE_ROOT = 1;
 const int TWO_ROOTS = 2;
@@ -33,16 +42,19 @@ int main(void)
 
     double a = NAN, b = NAN, c = NAN;
 
-    input(&a, &b, &c);
+    if (input(&a, &b, &c) == SUCCESS)
+    {
+        double x1 = NAN, x2 = NAN;
+        int rootsn = 0;
 
-    double x1 = NAN, x2 = NAN;
-    int rootsn = 0;
+        rootsn = solver(a, b, c, &x1, &x2);
 
-    rootsn = solver(a, b, c, &x1, &x2);
+        ans(rootsn, x1, x2);
+    }
 
-    ans(rootsn, x1, x2);
+    printf("Конец программы");
 
-    return SUCCESS_END;
+    return SUCCESS;
 }
 
 int solver(double a, double b, double c, double* x1, double* x2)    //решает уравнение
@@ -101,7 +113,7 @@ int SquareSolver(double a, double b, double c, double* x1, double* x2)  //случай
     }
 }
 
-void input(double* a, double* b, double* c)  //ввод
+int input(double* a, double* b, double* c)  //ввод
 {
     assert(a);
     assert(b);
@@ -111,12 +123,20 @@ void input(double* a, double* b, double* c)  //ввод
     printf("Уравнение имеет вид ax^2 + bx + c = 0\n");
     printf("Введите коэфиценты a, b и c через пробел\n");
 
-    while (scanf("%lf %lf %lf", a, b, c) != 3)
+    int EofCheck = 0;
+
+    while ((EofCheck = scanf("%lf %lf %lf", a, b, c)) != 3)
     {
-        bufferClear();                         //TODO: функция очистки буффера
-            // EOF
+        if (EofCheck == EOF)
+        {
+            printf("End of file\n");
+            return UNSUCCESS;
+        }
+        BufferClear();
         printf("Введите числа правильно\n");
     }
+
+    return SUCCESS;
 }
 
 void ans(int rootsn, double x1, double x2)    //вывод
@@ -124,19 +144,19 @@ void ans(int rootsn, double x1, double x2)    //вывод
     switch (rootsn)
     {
         case NO_ROOTS :
-            printf("Уравнение не имеет корней.");
+            printf("Уравнение не имеет корней.\n");
             break;
         case ONE_ROOT :
-            printf("Уравнение имеет один корень: %g", x1);
+            printf("Уравнение имеет один корень: %g\n", x1);
             break;
         case TWO_ROOTS :
-            printf("Уравнение имеет два корня: %g и %g", x1, x2);
+            printf("Уравнение имеет два корня: %g и %g\n", x1, x2);
             break;
         case INF_ROOTS :
-            printf("Уравнение имеет бесконечное количество корней");
+            printf("Уравнение имеет бесконечное количество корней\n");
             break;
         default :
-            printf("error");
+            printf("error\n");
     }
 }
 
@@ -156,33 +176,45 @@ int tester(void)    //тестирует solver()
 {
     int nErrors = 0;
 
-    nErrors += nTester(1, 0.0, 0.0, 0.0, NAN, NAN, INF_ROOTS);
-    nErrors += nTester(2, 0.0, 0.0, 1.0, NAN, NAN, NO_ROOTS);
-    nErrors += nTester(3, 0.0, 2.0, 0.0, 0.0, NAN, ONE_ROOT);
-    nErrors += nTester(4, 0.0, 2.0, 3.0, -1.5, NAN, ONE_ROOT);
-    nErrors += nTester(5, 0.0, 1.0, -5.0, 5.0, NAN, ONE_ROOT);
-    nErrors += nTester(6, 0.0, 1.5, 2.25, -1.5, NAN, ONE_ROOT);
-    nErrors += nTester(7, 2.0, 0.0, 0.0, 0.0, NAN, ONE_ROOT);
-    nErrors += nTester(8, -3.0, 0.0, 27.0, 3.0, -3.0, TWO_ROOTS);
-    nErrors += nTester(9, 1.0, 0.0, 4.0, NAN, NAN, NO_ROOTS);
-    nErrors += nTester(10, 0.7, 0.525, -1.75, -2.0, 1.25, TWO_ROOTS);
-    nErrors += nTester(11, 3.0, -6.0, 3.0, 1.0, NAN, ONE_ROOT);
+    struct TestData test1 = {1, 0.0, 0.0, 0.0, NAN, NAN, INF_ROOTS};
+    struct TestData test2 = {2, 0.0, 0.0, 1.0, NAN, NAN, NO_ROOTS};
+    struct TestData test3 = {3, 0.0, 2.0, 0.0, 0.0, NAN, ONE_ROOT};
+    struct TestData test4 = {4, 0.0, 2.0, 3.0, -1.5, NAN, ONE_ROOT};
+    struct TestData test5 = {5, 0.0, 1.0, -5.0, 5.0, NAN, ONE_ROOT};
+    struct TestData test6 = {6, 0.0, 1.5, 2.25, -1.5, NAN, ONE_ROOT};
+    struct TestData test7 = {7, 2.0, 0.0, 0.0, 0.0, NAN, ONE_ROOT};
+    struct TestData test8 = {8, -3.0, 0.0, 27.0, 3.0, -3.0, TWO_ROOTS};
+    struct TestData test9 = {9, 1.0, 0.0, 4.0, NAN, NAN, NO_ROOTS};
+    struct TestData test10 = {10, 0.7, 0.525, -1.75, -2.0, 1.25, TWO_ROOTS};
+    struct TestData test11 = {11, 3.0, -6.0, 3.0, 1.0, NAN, ONE_ROOT};
+
+    nErrors += nTester(test1);
+    nErrors += nTester(test2);
+    nErrors += nTester(test3);
+    nErrors += nTester(test4);
+    nErrors += nTester(test5);
+    nErrors += nTester(test6);
+    nErrors += nTester(test7);
+    nErrors += nTester(test8);
+    nErrors += nTester(test9);
+    nErrors += nTester(test10);
+    nErrors += nTester(test11);
 
     return nErrors;
 }
 
-int nTester(int nTest, double a, double b, double c, double x1Right, double x2Right, int rootsnRight)   //n-ый тест
+int nTester(TestData data)   //n-ый тест
 {
     double x1 = NAN, x2 = NAN;
-    int rootsn = solver(a, b, c, &x1, &x2);
+    int rootsn = solver(data.a, data.b, data.c, &x1, &x2);
 
-    SortRoots(&x1Right, &x2Right);
+    SortRoots(&(data.x1Right), &(data.x2Right));
 
-    if (rootsn != rootsnRight || fabs(x1 - x1Right) > EPSILON || fabs(x2 - x2Right) > EPSILON)
+    if (rootsn != data.rootsnRight || fabs(x1 - data.x1Right) > EPSILON || fabs(x2 - data.x2Right) > EPSILON)
     {
         printf("Error Test %d: a = %lg, b = %lg, c = %lg, x1 = %lg, x2 = %lg, rootsn = %d\n"
                "Expected: x1 = %lg, x2 = %lg, rootsn = %d\n",
-               nTest, a, b, c, x1, x2, rootsn, x1Right, x2Right, rootsnRight);
+               data.nTest, data.a, data.b, data.c, x1, x2, rootsn, data.x1Right, data.x2Right, data.rootsnRight);
 
         return ONE_ERROR;
     }
@@ -207,7 +239,7 @@ void SortRoots(double* x1, double* x2)  //меняет корни местами, если x1 > x2
     }
 }
 
-void bufferClear(void)
+void BufferClear(void)
 {
     while (getchar() != '\n');
 }
