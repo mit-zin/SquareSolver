@@ -1,7 +1,6 @@
 #include <TXLib.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdbool.h>
 
 struct TestData
 {
@@ -11,29 +10,43 @@ struct TestData
     int rootsnRight;
 };
 
-int solver(double a, double b, double c, double* x1, double* x2);
-int SquareSolver(double a, double b, double c, double* x1, double* x2);
-int LinearSolver(double b, double c, double* x);
-int input(double* a, double* b, double* c);
-void ans(int rootsn, double x1, double x2);
+struct CoefPointers
+{
+    double *a, *b, *c;
+};
+
+struct SolverParameters
+{
+    double a, b, c;
+    double *x1, *x2;
+};
+
+int    solver        (struct SolverParameters par);
+int    LinearSolver  (double b, double c, double* x);
+int    SquareSolver  (struct SolverParameters par);
+int    input         (struct CoefPointers coef);
+int    tester        (void);
+int    nTester       (struct TestData data);
+int    DoubleCompare (double num1, double num2);
 double MinusNullCheck(double num);
-int tester(void);
-int nTester(TestData data);
-bool DoubleZeroCheck(double num);
-void SortRoots(double* x1, double* x2);
-void BufferClear(void);
+void   ans           (int rootsn, double x1, double x2);
+void   SortRoots     (double* x1, double* x2);
+void   BufferClear   (void);
 
 //Читать прату, указатели массивы строки и структуры
 
-const double EPSILON = 0.000001;
-const int SUCCESS = 0;
-const int UNSUCCESS = 1;
-const int NO_ROOTS = 0;
-const int ONE_ROOT = 1;
-const int TWO_ROOTS = 2;
-const int INF_ROOTS = -1;
-const int ONE_ERROR = 1;
-const int NO_ERRORS = 0;
+const double EPSILON       = 0.000001;
+const int    SUCCESS       = 0;
+const int    UNSUCCESS     = 1;
+const int    NO_ROOTS      = 0;
+const int    ONE_ROOT      = 1;
+const int    TWO_ROOTS     = 2;
+const int    INF_ROOTS     = -1;
+const int    ONE_ERROR     = 1;
+const int    NO_ERRORS     = 0;
+const int    FIRST_BIGGER  = 1;
+const int    SECOND_BIGGER = -1;
+const int    EQUAL         = 0;
 
 int main(void)
 {
@@ -41,13 +54,16 @@ int main(void)
     printf("Число ошибок: %d\n", nErrors);
 
     double a = NAN, b = NAN, c = NAN;
+    struct CoefPointers coef = {&a, &b, &c};
 
-    if (input(&a, &b, &c) == SUCCESS)
+    if (input(coef) == SUCCESS)
     {
         double x1 = NAN, x2 = NAN;
         int rootsn = 0;
 
-        rootsn = solver(a, b, c, &x1, &x2);
+        struct SolverParameters par = {a, b, c, &x1, &x2};
+
+        rootsn = solver(par);
 
         ans(rootsn, x1, x2);
     }
@@ -57,18 +73,18 @@ int main(void)
     return SUCCESS;
 }
 
-int solver(double a, double b, double c, double* x1, double* x2)    //решает уравнение
+int solver(SolverParameters par)    //решает уравнение
 {
-    assert(x1);
-    assert(x2);
+    assert(par.x1);
+    assert(par.x2);
 
-    if (DoubleZeroCheck(a))
+    if (!DoubleCompare(par.a, 0.0))
     {
-        return LinearSolver(b, c, x1);
+        return LinearSolver(par.b, par.c, par.x1);
     }
     else
     {
-        return SquareSolver(a, b, c, x1, x2);
+        return SquareSolver(par);
     }
 }
 
@@ -76,9 +92,9 @@ int LinearSolver(double b, double c, double* x)  //случай если коэфицент a равен
 {
     assert(x);
 
-    if (DoubleZeroCheck(b))
+    if (!DoubleCompare(b, 0.0))
     {
-        return (DoubleZeroCheck(c)) ? INF_ROOTS : NO_ROOTS;
+        return (!DoubleCompare(c, 0.0)) ? INF_ROOTS : NO_ROOTS;
     }
     else
     {
@@ -87,23 +103,23 @@ int LinearSolver(double b, double c, double* x)  //случай если коэфицент a равен
     }
 }
 
-int SquareSolver(double a, double b, double c, double* x1, double* x2)  //случай если коэфицент a не равен 0
+int SquareSolver(SolverParameters par)  //случай если коэфицент a не равен 0
 {
-    assert(!DoubleZeroCheck(a));
-    assert(x1);
-    assert(x2);
+    assert(DoubleCompare(par.a, 0.0));
+    assert(par.x1);
+    assert(par.x2);
 
-    double d = b * b - 4 * a * c;
+    double d = par.b * par.b - 4 * par.a * par.c;
 
     if (d > 0)
     {
-        *x1 = min(MinusNullCheck((-b - sqrt(d)) / 2 / a), MinusNullCheck((-b + sqrt(d)) / 2 / a));
-        *x2 = max(MinusNullCheck((-b - sqrt(d)) / 2 / a), MinusNullCheck((-b + sqrt(d)) / 2 / a));
+        *par.x1 = min(MinusNullCheck((-par.b - sqrt(d)) / 2 / par.a), MinusNullCheck((-par.b + sqrt(d)) / 2 / par.a));
+        *par.x2 = max(MinusNullCheck((-par.b - sqrt(d)) / 2 / par.a), MinusNullCheck((-par.b + sqrt(d)) / 2 / par.a));
         return TWO_ROOTS;
     }
-    else if (DoubleZeroCheck(d))
+    else if (!DoubleCompare(d, 0.0))
     {
-        *x1 = MinusNullCheck(-b / 2 / a);
+        *par.x1 = MinusNullCheck(-par.b / 2 / par.a);
 
         return ONE_ROOT;
     }
@@ -113,11 +129,11 @@ int SquareSolver(double a, double b, double c, double* x1, double* x2)  //случай
     }
 }
 
-int input(double* a, double* b, double* c)  //ввод
+int input(struct CoefPointers coef)  //ввод
 {
-    assert(a);
-    assert(b);
-    assert(c);
+    assert(coef.a);
+    assert(coef.b);
+    assert(coef.c);
 
     printf("Я решаю квадратные уравнения.\n");
     printf("Уравнение имеет вид ax^2 + bx + c = 0\n");
@@ -125,7 +141,7 @@ int input(double* a, double* b, double* c)  //ввод
 
     int EofCheck = 0;
 
-    while ((EofCheck = scanf("%lf %lf %lf", a, b, c)) != 3)
+    while ((EofCheck = scanf("%lf %lf %lf", coef.a, coef.b, coef.c)) != 3)
     {
         if (EofCheck == EOF)
         {
@@ -139,7 +155,7 @@ int input(double* a, double* b, double* c)  //ввод
     return SUCCESS;
 }
 
-void ans(int rootsn, double x1, double x2)    //вывод
+void ans(int rootsn, double x1, double x2)    //вывод ответа
 {
     switch (rootsn)
     {
@@ -162,7 +178,7 @@ void ans(int rootsn, double x1, double x2)    //вывод
 
 double MinusNullCheck(double num)   //меняет -0 на 0
 {
-    if (DoubleZeroCheck(num))
+    if (!DoubleCompare(num, 0.0))
     {
         return fabs(num);
     }
@@ -203,10 +219,12 @@ int tester(void)    //тестирует solver()
     return nErrors;
 }
 
-int nTester(TestData data)   //n-ый тест
+int nTester(struct TestData data)   //n-ый тест
 {
     double x1 = NAN, x2 = NAN;
-    int rootsn = solver(data.a, data.b, data.c, &x1, &x2);
+
+    struct SolverParameters par = {data.a, data.b, data.c, &x1, &x2};
+    int rootsn = solver(par);
 
     SortRoots(&(data.x1Right), &(data.x2Right));
 
@@ -224,10 +242,22 @@ int nTester(TestData data)   //n-ый тест
     }
 }
 
-bool DoubleZeroCheck(double num)    //проверяет, что переменная типа double равна нулю
+int DoubleCompare(double num1, double num2)    //сравнивает два числа типа double
 {
-    return fabs(num) < EPSILON;
+    if (num1 - num2 > EPSILON)
+    {
+        return FIRST_BIGGER;
+    }
+    else if (num1 - num2 < -EPSILON)
+    {
+        return SECOND_BIGGER;
+    }
+    else
+    {
+        return EQUAL;
+    }
 }
+
 
 void SortRoots(double* x1, double* x2)  //меняет корни местами, если x1 > x2
 {
@@ -239,7 +269,7 @@ void SortRoots(double* x1, double* x2)  //меняет корни местами, если x1 > x2
     }
 }
 
-void BufferClear(void)
+void BufferClear(void)  //очистка буфера
 {
     while (getchar() != '\n');
 }
