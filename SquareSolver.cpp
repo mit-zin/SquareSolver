@@ -1,7 +1,6 @@
 #include <TXLib.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdbool.h>
 
 //Читать прату
 //Глава про структуры данных
@@ -17,20 +16,16 @@
 #define RED_ITAL     "\033[0;3;31m"
 
 const double EPSILON          = 0.000001;
-//const int    SUCCESS       = 0;
-//const int    UNSUCCESS     = 1;
 
 const int    ONE_ERROR        = 1;
 const int    NO_ERRORS        = 0;
 
-const int    FIRST_BIGGER     = 1;
-const int    SECOND_BIGGER    = -1;
-const int    EQUAL            = 0;
 const int    LAST_SYMB_OF_ANS = 4;
 
-enum roots  {INF_ROOTS = -1, NO_ROOTS, ONE_ROOT, TWO_ROOTS};
-enum result {SUCCESS, UNSUCCESS};
-enum yes_no {NO, YES};
+enum roots         {INF_ROOTS = -1, NO_ROOTS, ONE_ROOT, TWO_ROOTS};
+enum result        {SUCCESS, UNSUCCESS};
+enum yes_no        {NO, YES};
+enum compareResult {SECOND_BIGGER = -1, EQUAL, FIRST_BIGGER};
 
 struct TestData
 {
@@ -46,23 +41,23 @@ struct SolverParameters
     double x1, x2;
 };
 
-enum roots  solver        (struct SolverParameters *par);
-enum roots  LinearSolver  (struct SolverParameters *par);
-enum roots  SquareSolver  (struct SolverParameters *par);
-int         input         (struct SolverParameters *par);
-int         unitTester    (void);
-int         nTester       (struct TestData data);
-int         DoubleCompare (double num1, double num2);
-double      MinusNullCheck(double num);
-void        ans           (enum roots nRoots, double x1, double x2);
-void        SortRoots     (double* x1, double* x2);
-void        BufferClear   (void);
-enum result Request       (enum yes_no * answer);
-enum result TestModule    (void);
-enum result SolverModule  (void);
+enum roots         solver        (struct SolverParameters *par);
+enum roots         LinearSolver  (struct SolverParameters *par);
+enum roots         SquareSolver  (struct SolverParameters *par);
+int                input         (struct SolverParameters *par);
+int                unitTester    (void);
+int                nTester       (struct TestData data);
+enum compareResult DoubleCompare (double num1, double num2);
+double             MinusNullCheck(double num);
+void               ans           (enum roots nRoots, double x1, double x2);
+void               SortRoots     (double* x1, double* x2);
+void               BufferClear   (void);
+enum result        Request       (enum yes_no * answer);
+enum result        TestModule    (void);
+enum result        SolverModule  (void);
+enum result        SingleEquation(void);
 
-//Читать прату, указатели массивы строки и структуры
-
+/*                                                                         */
 int main(void)
 {
     enum result status;
@@ -77,9 +72,9 @@ int main(void)
     printf(USUAL "Конец программы");
 
     return SUCCESS;
-}
+}/*                                                                        */
 
-enum result TestModule(void)
+enum result TestModule(void)    //часть связанная с unit-тестами
 {
     printf(USUAL "Вы желаете включить тестирование?");
     enum yes_no testReq = NO;
@@ -99,7 +94,7 @@ enum result TestModule(void)
     }
 }
 
-enum result SolverModule(void)
+enum result SolverModule(void)  //часть связанная с решением уравнения
 {
     printf(USUAL "Я решаю квадратные уравнения.\n");
     printf(USUAL "Уравнение имеет вид ax^2 + bx + c = 0\n");
@@ -107,28 +102,39 @@ enum result SolverModule(void)
     enum yes_no solvReq = YES;
     while (solvReq == YES)
     {
-        struct SolverParameters par = {NAN, NAN, NAN, NAN, NAN};
-
-        if (input(&par) == SUCCESS)
-        {
-            enum roots nRoots = NO_ROOTS;
-
-            nRoots = solver(&par);
-
-            ans(nRoots, par.x1, par.x2);
-        }
-        else
+        if (SingleEquation() == UNSUCCESS)
         {
             return UNSUCCESS;
         }
 
         printf(USUAL "Хотите, чтобы я решил ещё одно уравнение?");
+
         if (Request(&solvReq) == UNSUCCESS)
         {
             return UNSUCCESS;
         }
     }
     return SUCCESS;
+}
+
+enum result SingleEquation(void)    //ввод коэфицентов, решение и ответ для одного уравнения
+{
+    struct SolverParameters par = {NAN, NAN, NAN, NAN, NAN};
+
+    if (input(&par) == SUCCESS)
+    {
+        enum roots nRoots = NO_ROOTS;
+
+        nRoots = solver(&par);
+
+        ans(nRoots, par.x1, par.x2);
+
+        return SUCCESS;
+    }
+    else
+    {
+        return UNSUCCESS;
+    }
 }
 
 enum roots solver(SolverParameters *par)    //решает уравнение
@@ -265,12 +271,14 @@ enum result Request(enum yes_no * answer)  //запрос на ответ да или нет
 
             return UNSUCCESS;
         }
+
         printf(RED_ITAL "Можно вводить только \"да\" или \"нет\".\n" VIOL_B_YEL_F);
 
         if (input[LAST_SYMB_OF_ANS] != '\0' && input[LAST_SYMB_OF_ANS] != '\n')
         {
             BufferClear();
         }
+
         eofCheck = fgets(input, SIZE_ANS, stdin);
     }
 
@@ -333,7 +341,7 @@ int nTester(struct TestData data)   //n-ый тест
     }
 }
 
-int DoubleCompare(double num1, double num2)    //сравнивает два числа типа double
+enum compareResult DoubleCompare(double num1, double num2)    //сравнивает два числа типа double
 {
     if (num1 - num2 > EPSILON)
     {
