@@ -1,38 +1,31 @@
 #include <TXLib.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
 
-//Читать прату
-//Глава про структуры данных
-//Глава про препроцессинг
-//больше енама возвращение енама ошибок в функции
-//интересный интерфейс, y/n для юнит тестов
+// внешний вид текста в консоли
+#define PRINTF_GREEN(...)        printf("\033[0;32m" __VA_ARGS__)
+#define PRINTF_RED(...)          printf("\033[0;31m" __VA_ARGS__)
+#define PRINTF_USUAL(...)        printf("\033[0m" __VA_ARGS__)
+#define PRINTF_VIOL_B_YEL_F(...) printf("\033[0;33;45m" __VA_ARGS__) // фиолетовый фон, жёлтый текст
+#define PRINTF_ITALICS(...)      printf("\033[0;3m" __VA_ARGS__)
+#define PRINTF_RED_ITAL(...)     printf("\033[0;3;31m" __VA_ARGS__)
 
-#define GREEN        "\033[0;32m"
-#define RED          "\033[0;31m"
-#define USUAL        "\033[0m"
-#define ITALICS      "\033[0;3m"
-#define VIOL_B_YEL_F "\033[0;45;33m"
-#define RED_ITAL     "\033[0;3;31m"
+const double EPSILON          = 1e-6;
 
-const double EPSILON          = 0.000001;
+const int    LAST_SYMB_OF_ANS = 3;
 
-const int    ONE_ERROR        = 1;
-const int    NO_ERRORS        = 0;
-
-const int    LAST_SYMB_OF_ANS = 4;
-
-enum roots         {INF_ROOTS = -1, NO_ROOTS, ONE_ROOT, TWO_ROOTS};
-enum result        {SUCCESS, UNSUCCESS};
-enum yes_no        {NO, YES};
-enum compareResult {SECOND_BIGGER = -1, EQUAL, FIRST_BIGGER};
+enum testResult    {NO_ERRORS = 0, ONE_ERROR = 1};
+enum roots         {INF_ROOTS = -1, NO_ROOTS = 0, ONE_ROOT = 1, TWO_ROOTS = 2};
+enum result        {SUCCESS = 0, UNSUCCESS = 1};
+enum yes_no        {NO = 0, YES = 1};
+enum compareResult {SECOND_BIGGER = -1, EQUAL = 0, FIRST_BIGGER = 1};
 
 struct TestData
 {
-    int nTest;
     double a, b, c;
     double x1Right, x2Right;
     enum roots nRootsRight;
+    int nTest;
 };
 
 struct SolverParameters
@@ -41,51 +34,51 @@ struct SolverParameters
     double x1, x2;
 };
 
-enum roots         solver        (struct SolverParameters *par);
-enum roots         LinearSolver  (struct SolverParameters *par);
-enum roots         SquareSolver  (struct SolverParameters *par);
-int                input         (struct SolverParameters *par);
-int                unitTester    (void);
-int                nTester       (struct TestData data);
+enum roots         Solve         (struct SolverParameters *par);
+enum roots         LinearSolve   (struct SolverParameters *par);
+enum roots         SquareSolve   (struct SolverParameters *par);
+int                SolverInput   (struct SolverParameters *par);
+int                UnitTester    (void);
+enum testResult    Test          (struct TestData data);
 enum compareResult DoubleCompare (double num1, double num2);
-double             MinusNullCheck(double num);
-void               ans           (enum roots nRoots, double x1, double x2);
+double             MinusZeroCheck(double num);
+void               SolverOutput  (enum roots nRoots, double x1, double x2);
 void               SortRoots     (double* x1, double* x2);
 void               BufferClear   (void);
+void               ArrClear      (char arr[], int arSize);
 enum result        Request       (enum yes_no * answer);
 enum result        TestModule    (void);
 enum result        SolverModule  (void);
 enum result        SingleEquation(void);
 
-/*                                                                         */
 int main(void)
 {
-    enum result status;
-
-    status = TestModule();
+    enum result status = TestModule();
 
     if (status == SUCCESS)
     {
         SolverModule();
     }
 
-    printf(USUAL "Конец программы");
+    PRINTF_USUAL("Конец программы");
 
     return SUCCESS;
-}/*                                                                        */
+}
 
-enum result TestModule(void)    //часть связанная с unit-тестами
+// часть связанная с unit-тестами
+enum result TestModule(void)
 {
-    printf(USUAL "Вы желаете включить тестирование?");
+    PRINTF_USUAL("Вы желаете включить тестирование?");
     enum yes_no testReq = NO;
 
     if (Request(&testReq) == SUCCESS)
     {
         if (testReq == YES)
         {
-            int nErrors = unitTester();
-            printf(ITALICS "Число ошибок: %d\n" USUAL, nErrors);
+            int nErrors = UnitTester();
+            PRINTF_ITALICS("Число ошибок: %d\n", nErrors);
         }
+
         return SUCCESS;
     }
     else
@@ -94,10 +87,11 @@ enum result TestModule(void)    //часть связанная с unit-тестами
     }
 }
 
-enum result SolverModule(void)  //часть связанная с решением уравнения
+// часть связанная с решением уравнения
+enum result SolverModule(void)
 {
-    printf(USUAL "Я решаю квадратные уравнения.\n");
-    printf(USUAL "Уравнение имеет вид ax^2 + bx + c = 0\n");
+    PRINTF_USUAL("Я решаю квадратные уравнения.\n");
+    printf("Уравнение имеет вид ax^2 + bx + c = 0\n");
 
     enum yes_no solvReq = YES;
     while (solvReq == YES)
@@ -107,7 +101,7 @@ enum result SolverModule(void)  //часть связанная с решением уравнения
             return UNSUCCESS;
         }
 
-        printf(USUAL "Хотите, чтобы я решил ещё одно уравнение?");
+        PRINTF_USUAL("Хотите, чтобы я решил ещё одно уравнение?");
 
         if (Request(&solvReq) == UNSUCCESS)
         {
@@ -117,17 +111,18 @@ enum result SolverModule(void)  //часть связанная с решением уравнения
     return SUCCESS;
 }
 
-enum result SingleEquation(void)    //ввод коэфицентов, решение и ответ для одного уравнения
+// ввод коэфицентов, решение и ответ для одного уравнения
+enum result SingleEquation(void)
 {
     struct SolverParameters par = {NAN, NAN, NAN, NAN, NAN};
 
-    if (input(&par) == SUCCESS)
+    if (SolverInput(&par) == SUCCESS)
     {
         enum roots nRoots = NO_ROOTS;
 
-        nRoots = solver(&par);
+        nRoots = Solve(&par);
 
-        ans(nRoots, par.x1, par.x2);
+        SolverOutput(nRoots, par.x1, par.x2);
 
         return SUCCESS;
     }
@@ -137,21 +132,23 @@ enum result SingleEquation(void)    //ввод коэфицентов, решение и ответ для одно
     }
 }
 
-enum roots solver(SolverParameters *par)    //решает уравнение
+// решает уравнение
+enum roots Solve(SolverParameters *par)
 {
     assert(par);
 
     if (!DoubleCompare((*par).a, 0))
     {
-        return LinearSolver(par);
+        return LinearSolve(par);
     }
     else
     {
-        return SquareSolver(par);
+        return SquareSolve(par);
     }
 }
 
-enum roots LinearSolver(struct SolverParameters *par)  //случай если коэфицент a равен 0
+// случай если коэфицент a равен 0
+enum roots LinearSolve(struct SolverParameters *par)
 {
     assert(par);
 
@@ -161,30 +158,31 @@ enum roots LinearSolver(struct SolverParameters *par)  //случай если коэфицент a
     }
     else
     {
-        (*par).x1 = MinusNullCheck(-(*par).c / (*par).b);
+        (*par).x1 = MinusZeroCheck(-(*par).c / (*par).b);
         return ONE_ROOT;
     }
 }
 
-enum roots SquareSolver(SolverParameters *par)  //случай если коэфицент a не равен 0
+// случай если коэфицент a не равен 0
+enum roots SquareSolve(SolverParameters *par)
 {
-    assert(DoubleCompare((*par).a, 0));
     assert(par);
+    assert(DoubleCompare((*par).a, 0));
 
     double d = (*par).b * (*par).b - 4 * (*par).a * (*par).c;
 
     if (d > 0)
     {
-        (*par).x1 = min(MinusNullCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
-                        MinusNullCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
-        (*par).x2 = max(MinusNullCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
-                        MinusNullCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
+        (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
+                        MinusZeroCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
+        (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
+                        MinusZeroCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
 
         return TWO_ROOTS;
     }
     else if (!DoubleCompare(d, 0))
     {
-        (*par).x1 = MinusNullCheck(-(*par).b / 2 / (*par).a);
+        (*par).x1 = MinusZeroCheck(-(*par).b / 2 / (*par).a);
 
         return ONE_ROOT;
     }
@@ -194,11 +192,13 @@ enum roots SquareSolver(SolverParameters *par)  //случай если коэфицент a не рав
     }
 }
 
-int input(struct SolverParameters *par)  //ввод
+// ввод
+int SolverInput(struct SolverParameters *par)
 {
     assert(par);
 
-    printf(USUAL "Введите коэфиценты a, b и c через пробел\n" VIOL_B_YEL_F);
+    PRINTF_USUAL("Введите коэфиценты a, b и c через пробел\n");
+    PRINTF_VIOL_B_YEL_F();
 
     int EofCheck = 0;
 
@@ -206,40 +206,44 @@ int input(struct SolverParameters *par)  //ввод
     {
         if (EofCheck == EOF)
         {
-            printf(ITALICS "Конец файла\n" USUAL);
+            PRINTF_ITALICS("Конец файла\n");
             return UNSUCCESS;
         }
         BufferClear();
-        printf(RED "Введите числа правильно\n" VIOL_B_YEL_F);
+        PRINTF_RED("Введите числа правильно\n");
+        PRINTF_VIOL_B_YEL_F();
     }
     BufferClear();
 
     return SUCCESS;
 }
 
-void ans(enum roots nRoots, double x1, double x2)    //вывод ответа
+// вывод ответа
+void SolverOutput(enum roots nRoots, double x1, double x2)
 {
+    PRINTF_GREEN();
+
     switch (nRoots)
     {
         case NO_ROOTS :
-            printf(GREEN "Уравнение не имеет корней.\n");
+            printf("Уравнение не имеет корней.\n");
             break;
         case ONE_ROOT :
-            printf(GREEN "Уравнение имеет один корень: %g\n", x1);
+            printf("Уравнение имеет один корень: %g\n", x1);
             break;
         case TWO_ROOTS :
-            printf(GREEN "Уравнение имеет два корня: %g и %g\n", x1, x2);
+            printf("Уравнение имеет два корня: %g и %g\n", x1, x2);
             break;
         case INF_ROOTS :
-            printf(GREEN "Уравнение имеет бесконечное количество корней\n" );
+            printf("Уравнение имеет бесконечное количество корней\n" );
             break;
         default :
-            printf("error\n");
+            PRINTF_RED_ITAL("error\n");
     }
-    printf(USUAL);
 }
 
-double MinusNullCheck(double num)   //меняет -0 на 0
+// меняет -0 на 0
+double MinusZeroCheck(double num)
 {
     if (!DoubleCompare(num, 0))
     {
@@ -251,87 +255,96 @@ double MinusNullCheck(double num)   //меняет -0 на 0
     }
 }
 
-enum result Request(enum yes_no * answer)  //запрос на ответ да или нет
+// запрос на ответ да или нет
+enum result Request(enum yes_no * answer)
 {
     assert(answer);
 
-    printf(USUAL " Введите \"да\" или \"нет\".\n" VIOL_B_YEL_F);
+    PRINTF_USUAL(" Введите \"да\" или \"нет\".\n");
+    PRINTF_VIOL_B_YEL_F();
 
-    const int SIZE_ANS = 6;
+    const int SIZE_ANS = 5;
     char input[SIZE_ANS] = {};
 
-    char *eofCheck;
+    char *eofCheck = 0;
     eofCheck = fgets(input, SIZE_ANS, stdin);
 
     while (strcmp(input, "да\n") && strcmp(input, "нет\n"))
     {
         if (!eofCheck)
         {
-            printf(ITALICS "Конец файла\n" USUAL);
+            PRINTF_ITALICS("Конец файла\n");
 
             return UNSUCCESS;
         }
 
-        printf(RED_ITAL "Можно вводить только \"да\" или \"нет\".\n" VIOL_B_YEL_F);
+        PRINTF_RED_ITAL("Можно вводить только \"да\" или \"нет\".\n");
+        PRINTF_VIOL_B_YEL_F();
 
         if (input[LAST_SYMB_OF_ANS] != '\0' && input[LAST_SYMB_OF_ANS] != '\n')
         {
             BufferClear();
         }
 
+        ArrClear(input, SIZE_ANS);
+
         eofCheck = fgets(input, SIZE_ANS, stdin);
     }
 
     if (!strcmp(input, "да\n"))
-    {
         *answer = YES;
-    }
     else
-    {
         *answer = NO;
-    }
 
     return SUCCESS;
 }
 
-int unitTester(void)    //тестирует solver()
+// тестирует Solve
+int UnitTester(void)
 {
     int nErrors = 0;
 
-    struct TestData tests[] = {{1, 0.0, 0.0, 0.0, NAN, NAN, INF_ROOTS},
-                               {2, 0.0, 0.0, 1.0, NAN, NAN, NO_ROOTS},
-                               {3, 0.0, 2.0, 0.0, 0.0, NAN, ONE_ROOT},
-                               {4, 0.0, 2.0, 3.0, -1.5, NAN, ONE_ROOT},
-                               {5, 0.0, 1.0, -5.0, 5.0, NAN, ONE_ROOT},
-                               {6, 0.0, 1.5, 2.25, -1.5, NAN, ONE_ROOT},
-                               {7, 2.0, 0.0, 0.0, 0.0, NAN, ONE_ROOT},
-                               {8, -3.0, 0.0, 27.0, 3.0, -3.0, TWO_ROOTS},
-                               {9, 1.0, 0.0, 4.0, NAN, NAN, NO_ROOTS},
-                               {10, 0.7, 0.525, -1.75, -2.0, 1.25, TWO_ROOTS},
-                               {11, 3.0, -6.0, 3.0, 1.0, NAN, ONE_ROOT}};
+    struct TestData tests[] = {{0.0, 0.0, 0.0, NAN, NAN, INF_ROOTS, 1},
+                               {0.0, 0.0, 1.0, NAN, NAN, NO_ROOTS, 2},
+                               {0.0, 2.0, 0.0, 0.0, NAN, ONE_ROOT, 3},
+                               {0.0, 2.0, 3.0, -1.5, NAN, ONE_ROOT, 4},
+                               {0.0, 1.0, -5.0, 5.0, NAN, ONE_ROOT, 5},
+                               {0.0, 1.5, 2.25, -1.5, NAN, ONE_ROOT, 6},
+                               {2.0, 0.0, 0.0, 0.0, NAN, ONE_ROOT, 7},
+                               {-3.0, 0.0, 27.0, 3.0, -3.0, TWO_ROOTS, 8},
+                               {1.0, 0.0, 4.0, NAN, NAN, NO_ROOTS, 9},
+                               {0.7, 0.525, -1.75, -2.0, 1.25, TWO_ROOTS, 10},
+                               {3.0, -6.0, 3.0, 1.0, NAN, ONE_ROOT, 11}};
 
     int nTests = sizeof tests / sizeof (struct TestData);
 
     for (int i = 0; i < nTests; i++)
     {
-        nErrors += nTester(tests[i]);
+        nErrors += Test(tests[i]);
     }
 
     return nErrors;
 }
 
-int nTester(struct TestData data)   //n-ый тест
+// n-ый тест
+enum testResult Test(struct TestData data)
 {
     struct SolverParameters par = {data.a, data.b, data.c, NAN, NAN};
-    enum roots nRoots = solver(&par);
+    enum roots nRoots = Solve(&par);
 
     SortRoots(&(data.x1Right), &(data.x2Right));
 
-    if (nRoots != data.nRootsRight || DoubleCompare(par.x1, data.x1Right) || DoubleCompare(par.x2, data.x2Right))
+    if (nRoots != data.nRootsRight ||
+        DoubleCompare(par.x1, data.x1Right) ||
+        DoubleCompare(par.x2, data.x2Right))
     {
-        printf(RED_ITAL "Error Test %d: a = %lg, b = %lg, c = %lg, x1 = %lg, x2 = %lg, nRoots = %d\n"
-               "Expected: x1 = %lg, x2 = %lg, nRoots = %d\n" USUAL,
-               data.nTest, data.a, data.b, data.c, par.x1, par.x2, nRoots, data.x1Right, data.x2Right, data.nRootsRight);
+        PRINTF_RED_ITAL("Error Test %d: a = %lg, b = %lg, c = %lg, x1 = %lg, x2 = %lg, nRoots = %d\n"
+                        "Expected: x1 = %lg, x2 = %lg, nRoots = %d\n",
+                    data.nTest, data.a,
+                    data.b, data.c,
+                    par.x1, par.x2,
+                    nRoots, data.x1Right,
+                    data.x2Right, data.nRootsRight);
 
         return ONE_ERROR;
     }
@@ -341,7 +354,8 @@ int nTester(struct TestData data)   //n-ый тест
     }
 }
 
-enum compareResult DoubleCompare(double num1, double num2)    //сравнивает два числа типа double
+// сравнивает два числа типа double
+enum compareResult DoubleCompare(double num1, double num2)
 {
     if (num1 - num2 > EPSILON)
     {
@@ -357,8 +371,8 @@ enum compareResult DoubleCompare(double num1, double num2)    //сравнивает два ч
     }
 }
 
-
-void SortRoots(double* x1, double* x2)  //меняет корни местами, если x1 > x2
+// меняет корни местами, если x1 > x2
+void SortRoots(double* x1, double* x2)
 {
     assert(x1);
     assert(x2);
@@ -371,7 +385,17 @@ void SortRoots(double* x1, double* x2)  //меняет корни местами, если x1 > x2
     }
 }
 
-void BufferClear(void)  //очистка буфера
+// очистка буфера
+void BufferClear(void)
 {
     while (getchar() != '\n');
+}
+
+// чистит массив
+void ArrClear(char arr[], int arSize)
+{
+    for (int i = 0; i < arSize; i++)
+    {
+        arr[i] = '\0';
+    }
 }
