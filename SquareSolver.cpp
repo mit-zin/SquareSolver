@@ -2,23 +2,33 @@
 #include <math.h>
 #include <stdio.h>
 
-// ГўГ­ГҐГёГ­ГЁГ© ГўГЁГ¤ ГІГҐГЄГ±ГІГ  Гў ГЄГ®Г­Г±Г®Г«ГЁ
-#define PRINTF_GREEN(...)        printf("\033[0;32m" __VA_ARGS__)
-#define PRINTF_RED(...)          printf("\033[0;31m" __VA_ARGS__)
-#define PRINTF_USUAL(...)        printf("\033[0m" __VA_ARGS__)
-#define PRINTF_VIOL_B_YEL_F(...) printf("\033[0;33;45m" __VA_ARGS__) // ГґГЁГ®Г«ГҐГІГ®ГўГ»Г© ГґГ®Г­, Г¦ВёГ«ГІГ»Г© ГІГҐГЄГ±ГІ
-#define PRINTF_ITALICS(...)      printf("\033[0;3m" __VA_ARGS__)
-#define PRINTF_RED_ITAL(...)     printf("\033[0;3;31m" __VA_ARGS__)
+// внешний вид текста в консоли
+#define PRINTF_USUAL(...)              printf("\033[0m" __VA_ARGS__)
+#define PRINTF_GREEN(...)              printf("\033[0;32m" __VA_ARGS__)
+#define PRINTF_RED(...)                printf("\033[0;31m" __VA_ARGS__)
+#define PRINTF_VIOL_BACK_YEL_FORE(...) printf("\033[0;33;45m" __VA_ARGS__)
+#define PRINTF_ITALICS(...)            printf("\033[0;3m" __VA_ARGS__)
+#define PRINTF_RED_ITAL(...)           printf("\033[0;3;31m" __VA_ARGS__)
 
-const double EPSILON          = 1e-6;
+const double EPSILON = 1e-6;
 
-const int    LAST_SYMB_OF_ANS = 3;
+enum testResult    {NO_ERRORS = 0,
+                    ONE_ERROR = 1};
 
-enum testResult    {NO_ERRORS = 0, ONE_ERROR = 1};
-enum roots         {INF_ROOTS = -1, NO_ROOTS = 0, ONE_ROOT = 1, TWO_ROOTS = 2};
-enum result        {SUCCESS = 0, UNSUCCESS = 1};
-enum yes_no        {NO = 0, YES = 1};
-enum compareResult {SECOND_BIGGER = -1, EQUAL = 0, FIRST_BIGGER = 1};
+enum roots         {INF_ROOTS = -1,
+                    NO_ROOTS  =  0,
+                    ONE_ROOT  =  1,
+                    TWO_ROOTS =  2};
+
+enum result        {SUCCESS   = 0,
+                    UNSUCCESS = 1};
+
+enum yes_no        {NO  = 0,
+                    YES = 1};
+
+enum compareResult {SECOND_BIGGER = -1,
+                    EQUAL         =  0,
+                    FIRST_BIGGER  =  1};
 
 struct TestData
 {
@@ -34,41 +44,44 @@ struct SolverParameters
     double x1, x2;
 };
 
+enum result        SolverModule  (void);
+enum result        SingleEquation(void);
+int                SolverInput   (struct SolverParameters *par);
+void               SolverOutput  (enum roots nRoots, double x1, double x2);//
 enum roots         Solve         (struct SolverParameters *par);
 enum roots         LinearSolve   (struct SolverParameters *par);
 enum roots         SquareSolve   (struct SolverParameters *par);
-int                SolverInput   (struct SolverParameters *par);
+
+enum result        TestModule    (void);
 int                UnitTester    (void);
 enum testResult    Test          (struct TestData data);
-enum compareResult DoubleCompare (double num1, double num2);
-double             MinusZeroCheck(double num);
-void               SolverOutput  (enum roots nRoots, double x1, double x2);
 void               SortRoots     (double* x1, double* x2);
-void               BufferClear   (void);
+
 void               ArrClear      (char arr[], int arSize);
 enum result        Request       (enum yes_no * answer);
-enum result        TestModule    (void);
-enum result        SolverModule  (void);
-enum result        SingleEquation(void);
+
+enum compareResult DoubleCompare (double num1, double num2);
+
+double             MinusZeroCheck(double num);
+
+void               BufferClear   (void);
 
 int main(void)
 {
     enum result status = TestModule();
 
     if (status == SUCCESS)
-    {
         SolverModule();
-    }
 
-    PRINTF_USUAL("ГЉГ®Г­ГҐГ¶ ГЇГ°Г®ГЈГ°Г Г¬Г¬Г»");
+    PRINTF_USUAL("Конец программы");
 
     return SUCCESS;
 }
 
-// Г·Г Г±ГІГј Г±ГўГїГ§Г Г­Г­Г Гї Г± unit-ГІГҐГ±ГІГ Г¬ГЁ
+// часть связанная с unit-тестами
 enum result TestModule(void)
 {
-    PRINTF_USUAL("Г‚Г» Г¦ГҐГ«Г ГҐГІГҐ ГўГЄГ«ГѕГ·ГЁГІГј ГІГҐГ±ГІГЁГ°Г®ГўГ Г­ГЁГҐ?");
+    PRINTF_USUAL("Вы желаете включить тестирование?");
     enum yes_no testReq = NO;
 
     if (Request(&testReq) == SUCCESS)
@@ -76,129 +89,111 @@ enum result TestModule(void)
         if (testReq == YES)
         {
             int nErrors = UnitTester();
-            PRINTF_ITALICS("Г—ГЁГ±Г«Г® Г®ГёГЁГЎГ®ГЄ: %d\n", nErrors);
+            PRINTF_ITALICS("Число ошибок: %d\n", nErrors);
         }
 
         return SUCCESS;
     }
     else
-    {
         return UNSUCCESS;
-    }
 }
 
-// Г·Г Г±ГІГј Г±ГўГїГ§Г Г­Г­Г Гї Г± Г°ГҐГёГҐГ­ГЁГҐГ¬ ГіГ°Г ГўГ­ГҐГ­ГЁГї
+// часть связанная с решением уравнения
 enum result SolverModule(void)
 {
-    PRINTF_USUAL("Гџ Г°ГҐГёГ Гѕ ГЄГўГ Г¤Г°Г ГІГ­Г»ГҐ ГіГ°Г ГўГ­ГҐГ­ГЁГї.\n");
-    printf("Г“Г°Г ГўГ­ГҐГ­ГЁГҐ ГЁГ¬ГҐГҐГІ ГўГЁГ¤ ax^2 + bx + c = 0\n");
+    PRINTF_USUAL("Я решаю квадратные уравнения.\n");
+    printf("Уравнение имеет вид ax^2 + bx + c = 0\n");
 
     enum yes_no solvReq = YES;
     while (solvReq == YES)
     {
         if (SingleEquation() == UNSUCCESS)
-        {
             return UNSUCCESS;
-        }
 
-        PRINTF_USUAL("Г•Г®ГІГЁГІГҐ, Г·ГІГ®ГЎГ» Гї Г°ГҐГёГЁГ« ГҐГ№Вё Г®Г¤Г­Г® ГіГ°Г ГўГ­ГҐГ­ГЁГҐ?");
+        PRINTF_USUAL("Хотите, чтобы я решил ещё одно уравнение?");
 
         if (Request(&solvReq) == UNSUCCESS)
-        {
             return UNSUCCESS;
-        }
     }
+
     return SUCCESS;
 }
 
-// ГўГўГ®Г¤ ГЄГ®ГЅГґГЁГ¶ГҐГ­ГІГ®Гў, Г°ГҐГёГҐГ­ГЁГҐ ГЁ Г®ГІГўГҐГІ Г¤Г«Гї Г®Г¤Г­Г®ГЈГ® ГіГ°Г ГўГ­ГҐГ­ГЁГї
+// ввод коэфицентов, решение и ответ для одного уравнения
 enum result SingleEquation(void)
 {
     struct SolverParameters par = {NAN, NAN, NAN, NAN, NAN};
 
     if (SolverInput(&par) == SUCCESS)
     {
-        enum roots nRoots = NO_ROOTS;
-
-        nRoots = Solve(&par);
+        enum roots nRoots = Solve(&par);
 
         SolverOutput(nRoots, par.x1, par.x2);
 
         return SUCCESS;
     }
     else
-    {
         return UNSUCCESS;
-    }
 }
 
-// Г°ГҐГёГ ГҐГІ ГіГ°Г ГўГ­ГҐГ­ГЁГҐ
+// решает уравнение
 enum roots Solve(SolverParameters *par)
 {
     assert(par);
 
-    if (!DoubleCompare((*par).a, 0))
-    {
-        return LinearSolve(par);
-    }
-    else
-    {
-        return SquareSolve(par);
-    }
+    return (DoubleCompare((*par).a, 0) != EQUAL) ? SquareSolve(par) : LinearSolve(par);
 }
 
-// Г±Г«ГіГ·Г Г© ГҐГ±Г«ГЁ ГЄГ®ГЅГґГЁГ¶ГҐГ­ГІ a Г°Г ГўГҐГ­ 0
+// случай если коэфицент a равен 0
 enum roots LinearSolve(struct SolverParameters *par)
 {
     assert(par);
 
-    if (!DoubleCompare((*par).b, 0))
-    {
-        return (!DoubleCompare((*par).c, 0)) ? INF_ROOTS : NO_ROOTS;
-    }
+    if (DoubleCompare((*par).b, 0) == EQUAL)
+        return (DoubleCompare((*par).c, 0) == EQUAL) ? INF_ROOTS : NO_ROOTS;
     else
     {
         (*par).x1 = MinusZeroCheck(-(*par).c / (*par).b);
+
         return ONE_ROOT;
     }
 }
 
-// Г±Г«ГіГ·Г Г© ГҐГ±Г«ГЁ ГЄГ®ГЅГґГЁГ¶ГҐГ­ГІ a Г­ГҐ Г°Г ГўГҐГ­ 0
+// случай если коэфицент a не равен 0
 enum roots SquareSolve(SolverParameters *par)
 {
     assert(par);
     assert(DoubleCompare((*par).a, 0));
 
     double d = (*par).b * (*par).b - 4 * (*par).a * (*par).c;
+    enum compareResult res = DoubleCompare(d, 0);
 
-    if (d > 0)
+    if (res == FIRST_BIGGER)
     {
-        (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
-                        MinusZeroCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
-        (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / 2 / (*par).a),
-                        MinusZeroCheck((-(*par).b + sqrt(d)) / 2 / (*par).a));
+        (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
+                        MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
+        (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
+                        MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
 
         return TWO_ROOTS;
     }
-    else if (!DoubleCompare(d, 0))
+    else if (res == EQUAL)
     {
         (*par).x1 = MinusZeroCheck(-(*par).b / 2 / (*par).a);
 
         return ONE_ROOT;
     }
     else
-    {
         return NO_ROOTS;
-    }
 }
 
-// ГўГўГ®Г¤
+// ввод
 int SolverInput(struct SolverParameters *par)
 {
     assert(par);
 
-    PRINTF_USUAL("Г‚ГўГҐГ¤ГЁГІГҐ ГЄГ®ГЅГґГЁГ¶ГҐГ­ГІГ» a, b ГЁ c Г·ГҐГ°ГҐГ§ ГЇГ°Г®ГЎГҐГ«\n");
-    PRINTF_VIOL_B_YEL_F();
+    PRINTF_USUAL("Введите коэфиценты a, b и c через пробел\n");
+    PRINTF_VIOL_BACK_YEL_FORE();
 
     int EofCheck = 0;
 
@@ -206,19 +201,21 @@ int SolverInput(struct SolverParameters *par)
     {
         if (EofCheck == EOF)
         {
-            PRINTF_ITALICS("ГЉГ®Г­ГҐГ¶ ГґГ Г©Г«Г \n");
+            PRINTF_ITALICS("Конец файла\n");
+
             return UNSUCCESS;
         }
         BufferClear();
-        PRINTF_RED("Г‚ГўГҐГ¤ГЁГІГҐ Г·ГЁГ±Г«Г  ГЇГ°Г ГўГЁГ«ГјГ­Г®\n");
-        PRINTF_VIOL_B_YEL_F();
+
+        PRINTF_RED("Введите числа правильно\n");
+        PRINTF_VIOL_BACK_YEL_FORE();
     }
     BufferClear();
 
     return SUCCESS;
 }
 
-// ГўГ»ГўГ®Г¤ Г®ГІГўГҐГІГ 
+// вывод ответа
 void SolverOutput(enum roots nRoots, double x1, double x2)
 {
     PRINTF_GREEN();
@@ -226,80 +223,69 @@ void SolverOutput(enum roots nRoots, double x1, double x2)
     switch (nRoots)
     {
         case NO_ROOTS :
-            printf("Г“Г°Г ГўГ­ГҐГ­ГЁГҐ Г­ГҐ ГЁГ¬ГҐГҐГІ ГЄГ®Г°Г­ГҐГ©.\n");
+            printf("Уравнение не имеет корней.\n");
             break;
         case ONE_ROOT :
-            printf("Г“Г°Г ГўГ­ГҐГ­ГЁГҐ ГЁГ¬ГҐГҐГІ Г®Г¤ГЁГ­ ГЄГ®Г°ГҐГ­Гј: %g\n", x1);
+            printf("Уравнение имеет один корень: %g\n", x1);
             break;
         case TWO_ROOTS :
-            printf("Г“Г°Г ГўГ­ГҐГ­ГЁГҐ ГЁГ¬ГҐГҐГІ Г¤ГўГ  ГЄГ®Г°Г­Гї: %g ГЁ %g\n", x1, x2);
+            printf("Уравнение имеет два корня: %g и %g\n", x1, x2);
             break;
         case INF_ROOTS :
-            printf("Г“Г°Г ГўГ­ГҐГ­ГЁГҐ ГЁГ¬ГҐГҐГІ ГЎГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГҐ ГЄГ®Г«ГЁГ·ГҐГ±ГІГўГ® ГЄГ®Г°Г­ГҐГ©\n" );
+            printf("Уравнение имеет бесконечное количество корней\n");
             break;
         default :
             PRINTF_RED_ITAL("error\n");
     }
 }
 
-// Г¬ГҐГ­ГїГҐГІ -0 Г­Г  0
+// меняет -0 на 0
 double MinusZeroCheck(double num)
 {
-    if (!DoubleCompare(num, 0))
-    {
-        return fabs(num);
-    }
-    else
-    {
-        return num;
-    }
+    return (DoubleCompare(num, 0) == EQUAL) ? fabs(num) : num;
 }
 
-// Г§Г ГЇГ°Г®Г± Г­Г  Г®ГІГўГҐГІ Г¤Г  ГЁГ«ГЁ Г­ГҐГІ
+// запрос на ответ да или нет
 enum result Request(enum yes_no * answer)
 {
     assert(answer);
 
-    PRINTF_USUAL(" Г‚ГўГҐГ¤ГЁГІГҐ \"Г¤Г \" ГЁГ«ГЁ \"Г­ГҐГІ\".\n");
-    PRINTF_VIOL_B_YEL_F();
+    PRINTF_USUAL(" Введите \"да\" или \"нет\" (без пробелов или других символов).\n");
+    PRINTF_VIOL_BACK_YEL_FORE();
 
-    const int SIZE_ANS = 5;
+    const int LAST_SYMB_OF_ANS = 3;
+    const int SIZE_ANS         = 5;
+
     char input[SIZE_ANS] = {};
 
-    char *eofCheck = input;
-    eofCheck = fgets(input, SIZE_ANS, stdin);
+    char *eofCheck = fgets(input, SIZE_ANS, stdin);
 
-    while (strcmp(input, "Г¤Г \n") && strcmp(input, "Г­ГҐГІ\n"))
+    while (strcmp(input, "да\n") && strcmp(input, "нет\n"))
     {
         if (!eofCheck)
         {
-            PRINTF_ITALICS("ГЉГ®Г­ГҐГ¶ ГґГ Г©Г«Г \n");
+            PRINTF_ITALICS("Конец файла\n");
 
             return UNSUCCESS;
         }
 
-        PRINTF_RED_ITAL("ГЊГ®Г¦Г­Г® ГўГўГ®Г¤ГЁГІГј ГІГ®Г«ГјГЄГ® \"Г¤Г \" ГЁГ«ГЁ \"Г­ГҐГІ\".\n");
-        PRINTF_VIOL_B_YEL_F();
+        PRINTF_RED("Можно вводить только \"да\" или \"нет\".\n");
+        PRINTF_VIOL_BACK_YEL_FORE();
 
         if (input[LAST_SYMB_OF_ANS] != '\0' && input[LAST_SYMB_OF_ANS] != '\n')
-        {
             BufferClear();
-        }
 
         ArrClear(input, SIZE_ANS);
 
         eofCheck = fgets(input, SIZE_ANS, stdin);
     }
 
-    if (!strcmp(input, "Г¤Г \n"))
-        *answer = YES;
-    else
-        *answer = NO;
+    *answer = (!strcmp(input, "да\n")) ? YES : NO;
 
     return SUCCESS;
 }
 
-// ГІГҐГ±ГІГЁГ°ГіГҐГІ Solve
+// тестирует Solve
 int UnitTester(void)
 {
     int nErrors = 0;
@@ -319,14 +305,12 @@ int UnitTester(void)
     int nTests = sizeof tests / sizeof (struct TestData);
 
     for (int i = 0; i < nTests; i++)
-    {
         nErrors += Test(tests[i]);
-    }
 
     return nErrors;
 }
 
-// n-Г»Г© ГІГҐГ±ГІ
+// n-ый тест
 enum testResult Test(struct TestData data)
 {
     struct SolverParameters par = {data.a, data.b, data.c, NAN, NAN};
@@ -349,29 +333,21 @@ enum testResult Test(struct TestData data)
         return ONE_ERROR;
     }
     else
-    {
         return NO_ERRORS;
-    }
 }
 
-// Г±Г°Г ГўГ­ГЁГўГ ГҐГІ Г¤ГўГ  Г·ГЁГ±Г«Г  ГІГЁГЇГ  double
+// сравнивает два числа типа double
 enum compareResult DoubleCompare(double num1, double num2)
 {
     if (num1 - num2 > EPSILON)
-    {
         return FIRST_BIGGER;
-    }
     else if (num1 - num2 < -EPSILON)
-    {
         return SECOND_BIGGER;
-    }
     else
-    {
         return EQUAL;
-    }
 }
 
-// Г¬ГҐГ­ГїГҐГІ ГЄГ®Г°Г­ГЁ Г¬ГҐГ±ГІГ Г¬ГЁ, ГҐГ±Г«ГЁ x1 > x2
+// меняет корни местами, если x1 > x2
 void SortRoots(double* x1, double* x2)
 {
     assert(x1);
@@ -385,17 +361,15 @@ void SortRoots(double* x1, double* x2)
     }
 }
 
-// Г®Г·ГЁГ±ГІГЄГ  ГЎГіГґГҐГ°Г 
+// очистка буфера
 void BufferClear(void)
 {
     while (getchar() != '\n');
 }
 
-// Г·ГЁГ±ГІГЁГІ Г¬Г Г±Г±ГЁГў
+// чистит массив
 void ArrClear(char arr[], int arSize)
 {
     for (int i = 0; i < arSize; i++)
-    {
         arr[i] = '\0';
-    }
 }
