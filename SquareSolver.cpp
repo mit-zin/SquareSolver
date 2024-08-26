@@ -303,6 +303,8 @@ enum result Request(enum yes_no * answer)
 // тестирует Solve
 int UnitTester(int *nErrors)
 {
+    assert(nErrors);
+
     FILE *fp = fopen("data.txt", "r");
 
     size_t arSize = 0;
@@ -331,6 +333,8 @@ int UnitTester(int *nErrors)
 // reads data in a file
 enum result FileRead(struct TestData data[], size_t arSize, FILE *fp)
 {
+    assert(fp);
+
     bool res = true;
 
     for (size_t i = 0; i < arSize; i++)
@@ -350,6 +354,9 @@ enum result FileRead(struct TestData data[], size_t arSize, FILE *fp)
 // reads right roots
 enum result xRightRead(FILE *fp, double *xRight)
 {
+    assert(fp);
+    assert(xRight);
+
     if (!fscanf(fp, "%lf", xRight))
     {
         const int ST_NAN_LEN = 4;
@@ -374,6 +381,9 @@ enum result xRightRead(FILE *fp, double *xRight)
 // reads right number of roots
 enum result nRootsRightRead(FILE *fp, enum roots *nRootsRight)
 {
+    assert(fp);
+    assert(nRootsRight);
+
     char stNRootsRight[MAX_STROOTS_LEN] = {};
 
     if (fscanf(fp, "%s", &stNRootsRight))
