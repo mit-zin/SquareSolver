@@ -313,13 +313,19 @@ int UnitTester(int *nErrors)
 
     if (FileRead(tests, arSize, fp) == SUCCESS)
     {
+        fclose(fp);
+
         for (size_t i = 0; i < arSize; i++)
             *nErrors += Test(tests[i]);
 
         return SUCCESS;
     }
     else
+    {
+        fclose(fp);
+
         return UNSUCCESS;
+    }
 }
 
 // reads data in a file
