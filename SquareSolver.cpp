@@ -11,29 +11,52 @@
 #define PRINTF_ITALICS(...)            printf("\033[0;3m" __VA_ARGS__)
 #define PRINTF_RED_ITAL(...)           printf("\033[0;3;31m" __VA_ARGS__)
 
+const int SUB = 26;
+
 const double EPSILON = 1e-6;
 
 const int ROOTS_SIZE = 4;
 const int MAX_STROOTS_LEN = 10;
 const char stRoots[4][MAX_STROOTS_LEN] = {"NO_ROOTS", "ONE_ROOT", "TWO_ROOTS", "INF_ROOTS"};
 
-enum testResult    {NO_ERRORS = 0,
-                    ONE_ERROR = 1};
+enum testResult
+{
+    NO_ERRORS = 0,
+    ONE_ERROR = 1
+};
+//раздельная компиляция https://narodstream.ru/c-urok-19-modulnoe-programmirovanie-razdelnaya-kompilyaciya/
+//КНР
+enum roots
+{
+    NO_ROOTS  = 0,
+    ONE_ROOT  = 1,
+    TWO_ROOTS = 2,
+    INF_ROOTS = 3
+};
 
-enum roots         {NO_ROOTS  = 0,
-                    ONE_ROOT  = 1,
-                    TWO_ROOTS = 2,
-                    INF_ROOTS = 3};
+enum result
+{
+    SUCCESS        = 0,
+    EOF_FOUND      = 1,
+    FILE_READ_ER   = 2,
+    FILE_NOT_FOUND = 3
+};
 
-enum result        {SUCCESS   = 0,
-                    UNSUCCESS = 1};
+enum yes_no
+{
+    NO  = 0,
+    YES = 1
+};
 
-enum yes_no        {NO  = 0,
-                    YES = 1};
+enum compareResult
+{
+    SECOND_BIGGER = -1,
+    EQUAL         =  0,
+    FIRST_BIGGER  =  1
+};
 
-enum compareResult {SECOND_BIGGER = -1,
-                    EQUAL         =  0,
-                    FIRST_BIGGER  =  1};
+
+
 
 struct TestData
 {
@@ -51,14 +74,14 @@ struct SolverParameters
 
 enum result        SolverModule   (void);
 enum result        SingleEquation (void);
-int                SolverInput    (struct SolverParameters *par);
+enum result        SolverInput    (struct SolverParameters *par);
 void               SolverOutput   (enum roots nRoots, double x1, double x2);
 enum roots         Solve          (struct SolverParameters *par);
 enum roots         LinearSolve    (struct SolverParameters *par);
 enum roots         SquareSolve    (struct SolverParameters *par);
 
 enum result        TestModule     (void);
-int                UnitTester     (int *nErrors);
+enum result        UnitTester     (int *nErrors);
 enum result        FileRead       (struct TestData data[], size_t arSize, FILE * fp);
 enum result        xRightRead     (FILE *fp, double *xRight);
 enum result        nRootsRightRead(FILE *fp, enum roots *nRootsRight);
@@ -72,14 +95,29 @@ enum compareResult DoubleCompare  (double num1, double num2);
 
 double             MinusZeroCheck (double num);
 
-void               BufferClear    (void);
+enum result        BufferClear    (void);
 
 int main(void)
 {
-    enum result status = TestModule();
+    enum result res = TestModule();
 
-    if (status == SUCCESS)
-        SolverModule();
+    if (res == SUCCESS)
+        res = SolverModule();
+
+    switch (res)
+    {
+        case EOF_FOUND :
+            PRINTF_ITALICS("Конец файла.\n");
+            break;
+        case FILE_READ_ER :
+            PRINTF_RED_ITAL("Ошибка во время чтения файла.\n");
+            break;
+        case FILE_NOT_FOUND :
+            PRINTF_RED_ITAL("Файл не найден.\n");
+            break;
+        case SUCCESS :
+            break;
+    }
 
     PRINTF_USUAL("Конец программы");
 
@@ -98,19 +136,18 @@ enum result TestModule(void)
         {
             int nErrors = 0;
 
-            if (UnitTester(&nErrors) == UNSUCCESS)
-            {
-                PRINTF_RED_ITAL("Ошибка при чтении файла.\n");
+            enum result res = UnitTester(&nErrors);
 
-                return UNSUCCESS;
-            }
-            PRINTF_ITALICS("Число ошибок: %d\n", nErrors);
+            if (res != SUCCESS)
+                return res;
+            else
+                PRINTF_ITALICS("Число ошибок: %d\n", nErrors);
         }
 
         return SUCCESS;
     }
     else
-        return UNSUCCESS;
+        return EOF_FOUND;
 }
 
 // часть связанная с решением уравнения
@@ -122,13 +159,13 @@ enum result SolverModule(void)
     enum yes_no solvReq = YES;
     while (solvReq == YES)
     {
-        if (SingleEquation() == UNSUCCESS)
-            return UNSUCCESS;
+        if (SingleEquation() == EOF_FOUND)
+            return EOF_FOUND;
 
         PRINTF_USUAL("Хотите, чтобы я решил ещё одно уравнение?");
 
-        if (Request(&solvReq) == UNSUCCESS)
-            return UNSUCCESS;
+        if (Request(&solvReq) == EOF_FOUND)
+            return EOF_FOUND;
     }
 
     return SUCCESS;
@@ -148,7 +185,7 @@ enum result SingleEquation(void)
         return SUCCESS;
     }
     else
-        return UNSUCCESS;
+        return EOF_FOUND;
 }
 
 // решает уравнение
@@ -181,29 +218,28 @@ enum roots SquareSolve(SolverParameters *par)
     assert(DoubleCompare((*par).a, 0));
 
     double d = (*par).b * (*par).b - 4 * (*par).a * (*par).c;
-    enum compareResult res = DoubleCompare(d, 0);
+    enum compareResult cmpRes = DoubleCompare(d, 0);
 
-    if (res == FIRST_BIGGER)
+    switch (cmpRes)
     {
-        (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
-                        MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
-        (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
-                        MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
+        case FIRST_BIGGER :
+            (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
+                            MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
+            (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
+                            MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
 
-        return TWO_ROOTS;
-    }
-    else if (res == EQUAL)
-    {
-        (*par).x1 = MinusZeroCheck(-(*par).b / 2 / (*par).a);
+            return TWO_ROOTS;
+        case EQUAL :
+            (*par).x1 = MinusZeroCheck(-(*par).b / 2 / (*par).a);
 
-        return ONE_ROOT;
+            return ONE_ROOT;
+        case SECOND_BIGGER :
+            return NO_ROOTS;
     }
-    else
-        return NO_ROOTS;
 }
 
 // ввод
-int SolverInput(struct SolverParameters *par)
+enum result SolverInput(struct SolverParameters *par)
 {
     assert(par);
 
@@ -215,17 +251,17 @@ int SolverInput(struct SolverParameters *par)
     while ((EofCheck = scanf("%lf %lf %lf", &(*par).a, &(*par).b, &(*par).c)) != 3)
     {
         if (EofCheck == EOF)
-        {
-            PRINTF_ITALICS("Конец файла\n");
+            return EOF_FOUND;
 
-            return UNSUCCESS;
-        }
-        BufferClear();
+        if (BufferClear() == EOF_FOUND)
+            return EOF_FOUND;
 
         PRINTF_RED("Введите числа правильно\n");
         PRINTF_VIOL_BACK_YEL_FORE();
     }
-    BufferClear();
+
+    if (BufferClear() == EOF_FOUND)
+        return EOF_FOUND;
 
     return SUCCESS;
 }
@@ -278,17 +314,16 @@ enum result Request(enum yes_no * answer)
     while (strcmp(input, "да\n") && strcmp(input, "нет\n"))
     {
         if (!eofCheck)
-        {
-            PRINTF_ITALICS("Конец файла\n");
-
-            return UNSUCCESS;
-        }
+            return EOF_FOUND;
 
         PRINTF_RED("Можно вводить только \"да\" или \"нет\".\n");
         PRINTF_VIOL_BACK_YEL_FORE();
 
         if (input[LAST_SYMB_OF_ANS] != '\0' && input[LAST_SYMB_OF_ANS] != '\n')
-            BufferClear();
+        {
+            if (BufferClear() == EOF_FOUND)
+                return EOF_FOUND;
+        }
 
         ArrClear(input, SIZE_ANS);
 
@@ -301,11 +336,13 @@ enum result Request(enum yes_no * answer)
 }
 
 // тестирует Solve
-int UnitTester(int *nErrors)
+enum result UnitTester(int *nErrors)
 {
     assert(nErrors);
 
     FILE *fp = fopen("data.txt", "r");
+    if (!fp)
+        return FILE_NOT_FOUND;
 
     size_t arSize = 0;
 
@@ -313,21 +350,18 @@ int UnitTester(int *nErrors)
 
     struct TestData tests[arSize];
 
-    if (FileRead(tests, arSize, fp) == SUCCESS)
-    {
-        fclose(fp);
+    enum result res = FileRead(tests, arSize, fp);
+    fclose(fp);
 
+    if (res == SUCCESS)
+    {
         for (size_t i = 0; i < arSize; i++)
             *nErrors += Test(tests[i]);
 
         return SUCCESS;
     }
     else
-    {
-        fclose(fp);
-
-        return UNSUCCESS;
-    }
+        return res;
 }
 
 // reads data in a file
@@ -335,20 +369,33 @@ enum result FileRead(struct TestData data[], size_t arSize, FILE *fp)
 {
     assert(fp);
 
-    bool res = true;
-
     for (size_t i = 0; i < arSize; i++)
     {
-        res = res & (fscanf(fp, "%d %lf %lf %lf",
-                           &data[i].nTest, &data[i].a, &data[i].b, &data[i].c) == 4);
+        int scRes = fscanf(fp, "%d %lf %lf %lf",
+                           &data[i].nTest, &data[i].a, &data[i].b, &data[i].c);
+        switch (scRes)
+        {
+            case EOF :
+                return EOF_FOUND;
+            case 4 :
+                break;
+            default:
+                return FILE_READ_ER;
+        }
 
-        res = res & (xRightRead(fp, &data[i].x1Right) == SUCCESS);
-        res = res & (xRightRead(fp, &data[i].x2Right) == SUCCESS);
+        enum result res = xRightRead(fp, &data[i].x1Right);
+        if (res != SUCCESS)
+            return res;
+        res = xRightRead(fp, &data[i].x2Right);
+        if (res != SUCCESS)
+            return res;
 
-        res = res & (nRootsRightRead(fp, &data[i].nRootsRight) == SUCCESS);
+        res = nRootsRightRead(fp, &data[i].nRootsRight);
+        if (res != SUCCESS)
+            return res;
     }
 
-    return (res) ? SUCCESS : UNSUCCESS;
+    return SUCCESS;
 }
 
 // reads right roots
@@ -357,25 +404,34 @@ enum result xRightRead(FILE *fp, double *xRight)
     assert(fp);
     assert(xRight);
 
-    if (!fscanf(fp, "%lf", xRight))
+    int res = fscanf(fp, "%lf", xRight);
+
+    switch (res)
     {
-        const int ST_NAN_LEN = 4;
-
-        char stXRight[ST_NAN_LEN] = {};
-
-        fscanf(fp, "%s", &stXRight);
-
-        if (!strcmp(stXRight, "NAN"))
+        case EOF :
+            return EOF_FOUND;
+        case 0 :
         {
-            *xRight = NAN;
+            const int ST_NAN_LEN = 4;
 
-            return SUCCESS;
+            char stXRight[ST_NAN_LEN];
+
+            fscanf(fp, "%s", &stXRight);
+
+            if (!strcmp(stXRight, "NAN"))
+            {
+                *xRight = NAN;
+
+                return SUCCESS;
+            }
+            else
+                return FILE_READ_ER;
         }
-        else
-            return UNSUCCESS;
+        case 1 :
+            return SUCCESS;
+        default:
+            printf("%d\n", res);
     }
-    else
-        return SUCCESS;
 }
 
 // reads right number of roots
@@ -386,40 +442,45 @@ enum result nRootsRightRead(FILE *fp, enum roots *nRootsRight)
 
     char stNRootsRight[MAX_STROOTS_LEN] = {};
 
-    if (fscanf(fp, "%s", &stNRootsRight))
+    int res = fscanf(fp, "%s", &stNRootsRight);
+
+    switch (res)
     {
-        for (int i = 0; i < ROOTS_SIZE; i++)
-        {
-            if (!strcmp(stNRootsRight, stRoots[i]))
+        case 1 :
+            for (int i = 0; i < ROOTS_SIZE; i++)
             {
-                int numInRoots = i;
-
-                switch (numInRoots)
+                if (!strcmp(stNRootsRight, stRoots[i]))
                 {
-                    case NO_ROOTS :
-                        *nRootsRight = NO_ROOTS;
-                        break;
-                    case ONE_ROOT :
-                        *nRootsRight = ONE_ROOT;
-                        break;
-                    case TWO_ROOTS :
-                        *nRootsRight = TWO_ROOTS;
-                        break;
-                    case INF_ROOTS :
-                        *nRootsRight = INF_ROOTS;
-                        break;
-                    default:
-                        return UNSUCCESS;
+                    int numInRoots = i;
+
+                    switch (numInRoots)
+                    {
+                        case NO_ROOTS :
+                            *nRootsRight = NO_ROOTS;
+                            break;
+                        case ONE_ROOT :
+                            *nRootsRight = ONE_ROOT;
+                            break;
+                        case TWO_ROOTS :
+                            *nRootsRight = TWO_ROOTS;
+                            break;
+                        case INF_ROOTS :
+                            *nRootsRight = INF_ROOTS;
+                            break;
+                        default:
+                            return FILE_READ_ER;
+                    }
+
+                    return SUCCESS;
                 }
-
-                return SUCCESS;
             }
-        }
 
-        return UNSUCCESS;
+            return FILE_READ_ER;
+        case EOF :
+            return EOF_FOUND;
+        case 0 :
+            return FILE_READ_ER;
     }
-
-    return UNSUCCESS;
 }
 
 // n-ый тест
@@ -474,9 +535,17 @@ void SortRoots(double* x1, double* x2)
 }
 
 // очистка буфера
-void BufferClear(void)
+enum result BufferClear(void)
 {
-    while (getchar() != '\n');
+    int c = 0;
+
+    while (((c = getchar()) != '\n')  &&  (c != SUB) && (c != EOF))
+        continue;
+
+    if (c == EOF)
+        return EOF_FOUND;
+    else
+        return SUCCESS;
 }
 
 // чистит массив
