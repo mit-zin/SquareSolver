@@ -1,5 +1,6 @@
 #include <TXLib.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 // внешний вид текста в консоли
@@ -12,13 +13,17 @@
 
 const double EPSILON = 1e-6;
 
+const int ROOTS_SIZE = 4;
+const int MAX_STROOTS_LEN = 10;
+const char stRoots[4][MAX_STROOTS_LEN] = {"NO_ROOTS", "ONE_ROOT", "TWO_ROOTS", "INF_ROOTS"};
+
 enum testResult    {NO_ERRORS = 0,
                     ONE_ERROR = 1};
 
-enum roots         {INF_ROOTS = -1,
-                    NO_ROOTS  =  0,
-                    ONE_ROOT  =  1,
-                    TWO_ROOTS =  2};
+enum roots         {NO_ROOTS  = 0,
+                    ONE_ROOT  = 1,
+                    TWO_ROOTS = 2,
+                    INF_ROOTS = 3};
 
 enum result        {SUCCESS   = 0,
                     UNSUCCESS = 1};
@@ -44,27 +49,30 @@ struct SolverParameters
     double x1, x2;
 };
 
-enum result        SolverModule  (void);
-enum result        SingleEquation(void);
-int                SolverInput   (struct SolverParameters *par);
-void               SolverOutput  (enum roots nRoots, double x1, double x2);//
-enum roots         Solve         (struct SolverParameters *par);
-enum roots         LinearSolve   (struct SolverParameters *par);
-enum roots         SquareSolve   (struct SolverParameters *par);
+enum result        SolverModule   (void);
+enum result        SingleEquation (void);
+int                SolverInput    (struct SolverParameters *par);
+void               SolverOutput   (enum roots nRoots, double x1, double x2);
+enum roots         Solve          (struct SolverParameters *par);
+enum roots         LinearSolve    (struct SolverParameters *par);
+enum roots         SquareSolve    (struct SolverParameters *par);
 
-enum result        TestModule    (void);
-int                UnitTester    (void);
-enum testResult    Test          (struct TestData data);
-void               SortRoots     (double* x1, double* x2);
+enum result        TestModule     (void);
+int                UnitTester     (int *nErrors);
+enum result        FileRead       (struct TestData data[], size_t arSize, FILE * fp);
+enum result        xRightRead     (FILE *fp, double *xRight);
+enum result        nRootsRightRead(FILE *fp, enum roots *nRootsRight);
+enum testResult    Test           (struct TestData data);
+void               SortRoots      (double* x1, double* x2);
 
-void               ArrClear      (char arr[], int arSize);
-enum result        Request       (enum yes_no * answer);
+void               ArrClear       (char arr[], int arSize);
+enum result        Request        (enum yes_no * answer);
 
-enum compareResult DoubleCompare (double num1, double num2);
+enum compareResult DoubleCompare  (double num1, double num2);
 
-double             MinusZeroCheck(double num);
+double             MinusZeroCheck (double num);
 
-void               BufferClear   (void);
+void               BufferClear    (void);
 
 int main(void)
 {
@@ -88,7 +96,14 @@ enum result TestModule(void)
     {
         if (testReq == YES)
         {
-            int nErrors = UnitTester();
+            int nErrors = 0;
+
+            if (UnitTester(&nErrors) == UNSUCCESS)
+            {
+                PRINTF_RED_ITAL("Ошибка при чтении файла.\n");
+
+                return UNSUCCESS;
+            }
             PRINTF_ITALICS("Число ошибок: %d\n", nErrors);
         }
 
@@ -286,28 +301,109 @@ enum result Request(enum yes_no * answer)
 }
 
 // тестирует Solve
-int UnitTester(void)
+int UnitTester(int *nErrors)
 {
-    int nErrors = 0;
+    FILE *fp = fopen("data.txt", "r");
 
-    struct TestData tests[] = {{0.0, 0.0, 0.0, NAN, NAN, INF_ROOTS, 1},
-                               {0.0, 0.0, 1.0, NAN, NAN, NO_ROOTS, 2},
-                               {0.0, 2.0, 0.0, 0.0, NAN, ONE_ROOT, 3},
-                               {0.0, 2.0, 3.0, -1.5, NAN, ONE_ROOT, 4},
-                               {0.0, 1.0, -5.0, 5.0, NAN, ONE_ROOT, 5},
-                               {0.0, 1.5, 2.25, -1.5, NAN, ONE_ROOT, 6},
-                               {2.0, 0.0, 0.0, 0.0, NAN, ONE_ROOT, 7},
-                               {-3.0, 0.0, 27.0, 3.0, -3.0, TWO_ROOTS, 8},
-                               {1.0, 0.0, 4.0, NAN, NAN, NO_ROOTS, 9},
-                               {0.7, 0.525, -1.75, -2.0, 1.25, TWO_ROOTS, 10},
-                               {3.0, -6.0, 3.0, 1.0, NAN, ONE_ROOT, 11}};
+    size_t arSize = 0;
 
-    int nTests = sizeof tests / sizeof (struct TestData);
+    fscanf(fp, "%zd", &arSize);
 
-    for (int i = 0; i < nTests; i++)
-        nErrors += Test(tests[i]);
+    struct TestData tests[arSize];
 
-    return nErrors;
+    if (FileRead(tests, arSize, fp) == SUCCESS)
+    {
+        for (size_t i = 0; i < arSize; i++)
+            *nErrors += Test(tests[i]);
+
+        return SUCCESS;
+    }
+    else
+        return UNSUCCESS;
+}
+
+// reads data in a file
+enum result FileRead(struct TestData data[], size_t arSize, FILE *fp)
+{
+    bool res = true;
+
+    for (size_t i = 0; i < arSize; i++)
+    {
+        res = res & (fscanf(fp, "%d %lf %lf %lf",
+                           &data[i].nTest, &data[i].a, &data[i].b, &data[i].c) == 4);
+
+        res = res & (xRightRead(fp, &data[i].x1Right) == SUCCESS);
+        res = res & (xRightRead(fp, &data[i].x2Right) == SUCCESS);
+
+        res = res & (nRootsRightRead(fp, &data[i].nRootsRight) == SUCCESS);
+    }
+
+    return (res) ? SUCCESS : UNSUCCESS;
+}
+
+// reads right roots
+enum result xRightRead(FILE *fp, double *xRight)
+{
+    if (!fscanf(fp, "%lf", xRight))
+    {
+        const int ST_NAN_LEN = 4;
+
+        char stXRight[ST_NAN_LEN] = {};
+
+        fscanf(fp, "%s", &stXRight);
+
+        if (!strcmp(stXRight, "NAN"))
+        {
+            *xRight = NAN;
+
+            return SUCCESS;
+        }
+        else
+            return UNSUCCESS;
+    }
+    else
+        return SUCCESS;
+}
+
+// reads right number of roots
+enum result nRootsRightRead(FILE *fp, enum roots *nRootsRight)
+{
+    char stNRootsRight[MAX_STROOTS_LEN] = {};
+
+    if (fscanf(fp, "%s", &stNRootsRight))
+    {
+        for (int i = 0; i < ROOTS_SIZE; i++)
+        {
+            if (!strcmp(stNRootsRight, stRoots[i]))
+            {
+                int numInRoots = i;
+
+                switch (numInRoots)
+                {
+                    case NO_ROOTS :
+                        *nRootsRight = NO_ROOTS;
+                        break;
+                    case ONE_ROOT :
+                        *nRootsRight = ONE_ROOT;
+                        break;
+                    case TWO_ROOTS :
+                        *nRootsRight = TWO_ROOTS;
+                        break;
+                    case INF_ROOTS :
+                        *nRootsRight = INF_ROOTS;
+                        break;
+                    default:
+                        return UNSUCCESS;
+                }
+
+                return SUCCESS;
+            }
+        }
+
+        return UNSUCCESS;
+    }
+
+    return UNSUCCESS;
 }
 
 // n-ый тест
