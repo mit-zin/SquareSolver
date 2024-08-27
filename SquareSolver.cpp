@@ -1,6 +1,5 @@
 #include <TXLib.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdio.h>
 
 // внешний вид текста в консоли
@@ -86,10 +85,11 @@ enum result        FileRead       (struct TestData data[], size_t arSize, FILE *
 enum result        xRightRead     (FILE *fp, double *xRight);
 enum result        nRootsRightRead(FILE *fp, enum roots *nRootsRight);
 enum testResult    Test           (struct TestData data);
-void               SortRoots      (double* x1, double* x2);
 
 void               ArrClear       (char arr[], int arSize);
 enum result        Request        (enum yes_no * answer);
+
+void               SortRoots      (double* x1, double* x2);
 
 enum compareResult DoubleCompare  (double num1, double num2);
 
@@ -223,10 +223,10 @@ enum roots SquareSolve(SolverParameters *par)
     switch (cmpRes)
     {
         case FIRST_BIGGER :
-            (*par).x1 = min(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
-                            MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
-            (*par).x2 = max(MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a)),
-                            MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a)));
+            (*par).x1 = MinusZeroCheck((-(*par).b - sqrt(d)) / (2 * (*par).a));
+            (*par).x2 = MinusZeroCheck((-(*par).b + sqrt(d)) / (2 * (*par).a));
+
+            SortRoots(&(*par).x1, &(*par).x2);
 
             return TWO_ROOTS;
         case EQUAL :
@@ -346,7 +346,16 @@ enum result UnitTester(int *nErrors)
 
     size_t arSize = 0;
 
-    fscanf(fp, "%zd", &arSize);
+    int scanRes = fscanf(fp, "%zd", &arSize);
+    switch (scanRes)
+    {
+        case EOF :
+            return EOF_FOUND;
+        case 0 :
+            return FILE_READ_ER;
+        case 1 :
+            break;
+    }
 
     struct TestData tests[arSize];
 
@@ -414,7 +423,7 @@ enum result xRightRead(FILE *fp, double *xRight)
         {
             const int ST_NAN_LEN = 4;
 
-            char stXRight[ST_NAN_LEN];
+            char stXRight[ST_NAN_LEN] = {};
 
             fscanf(fp, "%s", &stXRight);
 
@@ -539,8 +548,7 @@ enum result BufferClear(void)
 {
     int c = 0;
 
-    while (((c = getchar()) != '\n')  &&  (c != SUB) && (c != EOF))
-        continue;
+    while (((c = getchar()) != '\n')  &&  (c != SUB) && (c != EOF));
 
     if (c == EOF)
         return EOF_FOUND;
